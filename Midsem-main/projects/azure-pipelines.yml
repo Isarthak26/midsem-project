@@ -1,0 +1,88 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+- group: Terraform-Secrets
+
+stages:
+- stage: Plan
+  displayName: 'Terraform Plan'
+  jobs:
+  - job: PlanJob
+    displayName: 'Run Terraform Plan'
+    steps:
+    - task: InstallTerraform@0
+      displayName: 'Install Terraform'
+      inputs:
+        terraformVersion: 'latest'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Init'
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/projects/environments/dev'
+        backendServiceArm: 'Azure-Subscription-Connection'
+        backendAzureRmResourceGroupName: 'tfstate-rg'
+        backendAzureRmStorageAccountName: 'tfstateashish'
+        backendAzureRmContainerName: 'tfstate'
+        backendAzureRmKey: 'terraform.tfstate'
+
+    - task: TerraformTaskV4@4
+      displayName: 'Terraform Plan'
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/projects/environments/dev'
+        environmentServiceNameAzureRM: 'Azure-Subscription-Connection'
+        commandOptions: '-out=tfplan'
+
+    - publish: '$(System.DefaultWorkingDirectory)/projects/environments/dev/tfplan'
+      artifact: 'TerraformPlan'
+      displayName: 'Publish Terraform Plan'
+
+- stage: Apply
+  displayName: 'Terraform Apply'
+  dependsOn: Plan
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  jobs:
+  - deployment: ApplyJob
+    displayName: 'Run Terraform Apply'
+    environment: 'development'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: InstallTerraform@0
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: 'latest'
+
+          - download: current
+            artifact: 'TerraformPlan'
+            displayName: 'Download Terraform Plan'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Init'
+            inputs:
+              provider: 'azurerm'
+              command: 'init'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/projects/environments/dev'
+              backendServiceArm: 'Azure-Subscription-Connection'
+              backendAzureRmResourceGroupName: 'tfstate-rg'
+              backendAzureRmStorageAccountName: 'tfstateashish'
+              backendAzureRmContainerName: 'tfstate'
+              backendAzureRmKey: 'terraform.tfstate'
+
+          - task: TerraformTaskV4@4
+            displayName: 'Terraform Apply'
+            inputs:
+              provider: 'azurerm'
+              command: 'apply'
+              workingDirectory: '$(System.DefaultWorkingDirectory)/projects/environments/dev'
+              environmentServiceNameAzureRM: 'Azure-Subscription-Connection'
+              commandOptions: '$(Pipeline.Workspace)/TerraformPlan/tfplan'
+

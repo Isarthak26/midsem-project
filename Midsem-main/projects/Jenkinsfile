@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+
+    environment {
+        AZURE_CREDENTIALS = credentials('AZURE_CREDENTIALS')
+        // Terraform automatically reads environment variables starting with TF_VAR_
+        TF_VAR_vm_admin_password = credentials('VM_ADMIN_PASSWORD')
+    }
+
+    parameters {
+        string(name: 'ENVIRONMENT', defaultValue: 'dev', description: 'The environment to deploy (e.g., dev, prod)')
+        booleanParam(name: 'APPLY_CHANGES', defaultValue: false, description: 'Check this box to apply the Terraform plan.')
+    }
+
+    stages {
+        // NOTE: The initial checkout stage has been removed as it's redundant.
+        // Jenkins automatically checks out the code when the pipeline starts.
+
+        stage('Login to Azure') {
+            steps {
+                script {
+                    echo "Logging into Azure using the provided Service Principal..."
+                    def creds = readJSON text: AZURE_CREDENTIALS
+                    bat """
+                    az login --service-principal ^
+                        -u ${creds.clientId} ^
+                        -p ${creds.clientSecret} ^
+                        --tenant ${creds.tenantId}
+                    az account set --subscription ${creds.subscriptionId}
+                    """
+                }
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                // CORRECTED PATH: Added "projects/" to the directory path
+                dir("projects/environments/${params.ENVIRONMENT}") {
+                    echo "Initializing Terraform..."
+                    bat 'terraform init -upgrade'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                // CORRECTED PATH: Added "projects/" to the directory path
+                dir("projects/environments/${params.ENVIRONMENT}") {
+                    echo "Running Terraform Plan..."
+                    bat "terraform plan -out=tfplan"
+                }
+            }
+        }
+
+        stage('Archive Plan for Review') {
+            steps {
+                echo "Archiving the Terraform plan file..."
+                // CORRECTED PATH: Added "projects/" to the artifacts path
+                archiveArtifacts artifacts: "projects/environments/${params.ENVIRONMENT}/tfplan", fingerprint: true
+            }
+        }
+
+        stage('Apply Terraform Plan') {
+            when {
+                expression { return params.APPLY_CHANGES == true }
+            }
+            steps {
+                // CORRECTED PATH: Added "projects/" to the directory path
+                dir("projects/environments/${params.ENVIRONMENT}") {
+                    echo "Applying Terraform plan..."
+                    bat 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "Cleaning the workspace..."
+            cleanWs()
+        }
+    }
+}
+
