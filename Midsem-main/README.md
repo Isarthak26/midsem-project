@@ -35,36 +35,7 @@ The goal is to enable seamless deployment of an **NGINX web application** (conta
 
 ---
 
-## 🗂️ Directory Structure
 
-infra-repo/
-├── modules/
-│ ├── aws/
-│ │ ├── compute/
-│ │ ├── loadbalancer/
-│ │ └── network/
-│ └── azure/
-│ ├── compute/
-│ ├── loadbalancer/
-│ └── network/
-├── environments/
-│ ├── dev/
-│ │ ├── main.tf
-│ │ ├── provider.tf
-│ │ ├── backend.tf
-│ │ ├── terraform.tfvars
-│ │ └── variables.tf
-│ ├── staging/
-│ └── prod/
-├── app/
-│ ├── Dockerfile
-│ ├── nginx.conf
-│ └── generate-ssl.sh
-├── pipeline/
-│ ├── azure-pipelines.yml
-│ └── jenkinsfile
-├── .gitignore
-└── README.md
 
 markdown
 Copy code
