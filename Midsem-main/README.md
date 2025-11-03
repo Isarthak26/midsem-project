@@ -1,42 +1,229 @@
                                                                   # Midsem
                                                     Infrastructure as Code (IaC) with Terraform
-                                                    
-Configuration structure of the files to ensure Maintainability and scalability
+# 🌍 Multi-Cloud Infrastructure Automation — Terraform + Docker + CI/CD
+
+### 🚀 Overview
+This project demonstrates a **multi-cloud, scalable, and modular infrastructure** built using **Terraform**, **Docker**, and **CI/CD pipelines** (Jenkins & Azure DevOps).
+
+The goal is to enable seamless deployment of an **NGINX web application** (containerized and SSL-enabled) across **AWS** and **Azure**, while keeping the infrastructure **reusable**, **environment-agnostic**, and **easy to scale**.
+
 ---
-<img width="380" height="700" alt="configuration-structure" src="https://github.com/user-attachments/assets/f33dcc04-04fb-43a4-9c62-c78e392497a4" />
 
-Terraform Modular Infrastructure for Azure
+## 🎯 Key Objectives
+
+- Build reusable Terraform modules for compute, networking, and load balancers  
+- Deploy to multiple environments (`dev`, `staging`, `prod`)  
+- Support **both AWS and Azure** clouds  
+- Containerize an **NGINX app** with **OpenSSL-based HTTPS**  
+- Automate infra provisioning using **CI/CD pipelines**  
+- Enable **centralized state management** and **safe concurrent deployments**
+
 ---
-This repository contains Terraform code to deploy a modular infrastructure on Microsoft Azure. The configuration is designed to be reusable and maintainable, leveraging Terraform modules to manage different components of the infrastructure.
-Project Structure
-The project follows a standard Terraform module structure to promote reusability and separation of concerns.
-environments/dev: This directory contains the root configuration for the development environment. It calls the reusable modules and defines the specific values for that environment.
 
-modules: This directory contains the reusable modules for different parts of the infrastructure:
+## 🧱 Architecture Overview
 
-compute: Manages virtual machines.
+### 🧩 Core Components
+| Layer | AWS | Azure | Description |
+|-------|------|--------|-------------|
+| Networking | VPC with public/private subnets | Virtual Network with subnets | Secure network segmentation |
+| Compute | EC2 Instances | Azure Virtual Machines | Hosts the Dockerized NGINX app |
+| Load Balancer | Application Load Balancer (ALB) | Application Gateway | Handles HTTPS traffic |
+| NAT Gateway | NAT Gateway | NAT Gateway or Outbound Rule | Outbound internet access for private subnets |
+| SSL | Self-signed via OpenSSL | Self-signed via OpenSSL | Enables HTTPS inside containers |
+| CI/CD | Jenkins & GitHub Actions | Azure DevOps | Automates build and deploy |
+| State Management | S3 + DynamoDB | Azure Storage Account | Centralized remote state and locking |
 
-loadbalancer: Manages the application gateway/load balancer.
+---
 
-networking: Manages virtual networks, subnets, and other networking components.
+## 🗂️ Directory Structure
 
-nginx: A module that appears to configure a web server.
+infra-repo/
+├── modules/
+│ ├── aws/
+│ │ ├── compute/
+│ │ ├── loadbalancer/
+│ │ └── network/
+│ └── azure/
+│ ├── compute/
+│ ├── loadbalancer/
+│ └── network/
+├── environments/
+│ ├── dev/
+│ │ ├── main.tf
+│ │ ├── provider.tf
+│ │ ├── backend.tf
+│ │ ├── terraform.tfvars
+│ │ └── variables.tf
+│ ├── staging/
+│ └── prod/
+├── app/
+│ ├── Dockerfile
+│ ├── nginx.conf
+│ └── generate-ssl.sh
+├── pipeline/
+│ ├── azure-pipelines.yml
+│ └── jenkinsfile
+├── .gitignore
+└── README.md
 
-Workflow
-The standard Terraform workflow (init, plan, apply) is used to deploy and manage the infrastructure.
+markdown
+Copy code
 
-1. Initialize
-The terraform init command is used to initialize the working directory, downloading provider plugins and configuring the backend.
+---
 
-2. Plan
-The terraform plan command creates an execution plan, which lets you preview the changes Terraform plans to make to your infrastructure.
+## ⚙️ How It Works
 
-3. Apply
-The terraform apply command executes the actions proposed in a Terraform plan to create, update, or destroy infrastructure.
+1. **Terraform Modules**  
+   Each module (network, compute, load balancer, nginx-app) is fully parameterized and reusable across environments and clouds.
 
-After a successful apply, the defined outputs, such as the application URL, will be displayed.
+2. **Multi-Environment Support**  
+   - Separate folders (`dev`, `staging`, `prod`) each contain backend configs and environment-specific variables.  
+   - You can deploy with:
+     ```bash
+     terraform workspace select dev
+     terraform apply -var-file=environments/dev/terraform.tfvars
+     ```
 
-This structure allows for easy management of different environments (e.g., dev, staging, prod) by creating new directories under environments and reusing the same modules.
+3. **Multi-Cloud Support**
+   - Enable or disable clouds using variables:
+     ```hcl
+     variable "enable_aws"   { type = bool, default = true }
+     variable "enable_azure" { type = bool, default = false }
+     ```
+
+4. **Dockerized NGINX App**
+   - Uses `generate-ssl.sh` to create self-signed certs  
+   - Runs on HTTPS (`443`), redirects HTTP → HTTPS  
+   - Deployed via Terraform `user_data` or VM extensions
+
+5. **CI/CD Pipelines**
+   - Jenkins and Azure DevOps YAML pipelines automate:
+     - Terraform init, plan, and apply
+     - Docker image build and push
+     - Environment-based deployments
+
+6. **Remote State Management**
+   - AWS: S3 bucket with DynamoDB for state locking  
+   - Azure: Storage Account + Container for state  
+   - Keeps deployments atomic and consistent across teams
+
+---
+
+## 🧰 Prerequisites
+
+| Tool | Purpose | Install Command |
+|------|----------|-----------------|
+| Terraform ≥ v1.6 | Infrastructure provisioning | [Install Terraform](https://developer.hashicorp.com/terraform/downloads) |
+| Azure CLI | Authenticate & manage Azure | `winget install Microsoft.AzureCLI` |
+| AWS CLI | Authenticate to AWS | `pip install awscli` |
+| Docker | Container runtime | [Install Docker](https://docs.docker.com/get-docker/) |
+| Jenkins / Azure DevOps | CI/CD pipelines | Preconfigured on server |
+| Git | Version control | `winget install Git.Git` |
+
+---
+
+## 🚀 Deployment Steps
+
+### 🔹 Step 1: Clone Repository
+```bash
+git clone https://github.com/Isarthak26/devops-midsem.git
+cd infra-repo
+🔹 Step 2: Authenticate
+bash
+Copy code
+# For Azure
+az login
+
+# For AWS
+aws configure
+🔹 Step 3: Initialize Terraform
+bash
+Copy code
+cd environments/dev
+terraform init
+🔹 Step 4: Plan and Apply
+bash
+Copy code
+terraform plan -var-file="terraform.tfvars"
+terraform apply -var-file="terraform.tfvars"
+🔹 Step 5: Verify Deployment
+Once completed, Terraform will output:
+
+ALB / App Gateway DNS name
+
+Public or private IPs of deployed VMs
+Visit:
+
+cpp
+Copy code
+https://<aws-alb-dns>
+https://<azure-appgw-dns>
+(Expect a browser SSL warning — using self-signed certs)
+
+🌐 CI/CD Pipelines
+Jenkinsfile
+Parameterized build with environment input
+
+Stages:
+
+Checkout code
+
+Terraform init & plan
+
+Manual approval
+
+Terraform apply
+
+Docker build & deploy
+
+Azure DevOps Pipeline
+YAML-based automation
+
+Supports multi-environment deployments:
+
+yaml
+Copy code
+parameters:
+  - name: environment
+    values: [ dev, staging, prod ]
+🧩 Benefits of This Setup
+✅ Cloud-Agnostic Design (AWS + Azure ready)
+
+✅ Fully Modular & DRY Terraform Code
+
+✅ Multi-Environment Ready (dev/staging/prod)
+
+✅ Built-in CI/CD for automation
+
+✅ Secure HTTPS via OpenSSL inside containers
+
+✅ Scalable Compute Layer using count / for_each
+
+✅ Centralized State & Locking for team safety
+
+🧠 Troubleshooting
+Issue	Possible Fix
+Error: module not found	Check folder paths and relative source fields
+Provider not configured	Ensure provider blocks exist for both AWS & Azure
+State backend error	Verify backend credentials and storage permissions
+SSL warning in browser	Expected (using self-signed certs)
+Authentication failed	Run az login or aws configure again
+
+📄 License
+This project is released under the MIT License.
+Feel free to fork, reuse, and adapt for learning or enterprise use.
+
+👨‍💻 Author
+Sarthak @Isarthak26
+💼 Engineering Student | Aspiring DevOps Engineer | Cloud Infrastructure Enthusiast
+🧠 Focused on automation, scalability, and open-source learning.
+
+
+
+---
+
+Would you like me to also generate a matching `.gitignore` (Terraform + Docker + CI/CD safe defaults) so your repo stays clean when you push it?  
+I can add that right below this README.
 
 <img width="1861" height="1157" alt="init" src="https://github.com/user-attachments/assets/94a97c8d-0621-4b9e-b6f2-26084d3aa7db" />
 
